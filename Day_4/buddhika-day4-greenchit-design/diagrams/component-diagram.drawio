@@ -1,0 +1,49 @@
+<mxfile host="app.diagrams.net" agent="GreenChit Day4" version="24.0.0">
+  <diagram name="C4-Component" id="greenchit-component">
+    <mxGraphModel dx="1280" dy="820" grid="1" gridSize="10" guides="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1440" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" /><mxCell id="1" parent="0" />
+        <mxCell id="t" value="GreenChit — C4 Component Diagram: Claims API (Level 3)" style="text;html=1;align=center;fontSize=18;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="380" y="14" width="640" height="30" as="geometry"/></mxCell>
+
+        <!-- API boundary -->
+        <mxCell id="bound" value="Claims API  [Container: ASP.NET Core]" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fillColor=none;strokeColor=#0F5A8C;dashed=1;strokeWidth=3;fontStyle=1;fontColor=#0F5A8C;" vertex="1" parent="1"><mxGeometry x="360" y="90" width="660" height="680" as="geometry"/></mxCell>
+
+        <!-- Components -->
+        <mxCell id="ctrl" value="API Controllers&#10;[Minimal API/MVC]&#10;HTTP endpoints, binding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="560" y="140" width="250" height="75" as="geometry"/></mxCell>
+        <mxCell id="auth" value="Auth &amp; Access&#10;[Middleware]&#10;JWT validation, RBAC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="390" y="270" width="210" height="80" as="geometry"/></mxCell>
+        <mxCell id="claims" value="Claims Service&#10;[Domain]&#10;Claim state machine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="650" y="270" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="rec" value="Receipts&#10;[Service]&#10;Issues SAS, validates size/count" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="390" y="400" width="210" height="80" as="geometry"/></mxCell>
+        <mxCell id="notif" value="Notifications&#10;[Service]&#10;Publishes claim.* events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="650" y="400" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="audit" value="Audit&#10;[Service]&#10;Tamper-evident transition log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="390" y="530" width="210" height="80" as="geometry"/></mxCell>
+        <mxCell id="export" value="Export&#10;[Service]&#10;Builds CSV, writes to SharePoint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="650" y="530" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="repo" value="Persistence&#10;[EF Core repositories]&#10;Transactional data access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4298D2;strokeColor=#236EA5;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="520" y="655" width="330" height="70" as="geometry"/></mxCell>
+
+        <!-- External -->
+        <mxCell id="web" value="Web App&#10;[React SPA]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1782C3;strokeColor=#0F5A8C;fontColor=#fff;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="80" y="140" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="entra" value="Entra ID&#10;[M365]&#10;JWKS / tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C8C8C;strokeColor=#6C6C6C;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="80" y="280" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="sql" value="Azure SQL&#10;[Database]&#10;Claims + audit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7D5A;strokeColor=#1E5F41;fontColor=#fff;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1080" y="250" width="240" height="80" as="geometry"/></mxCell>
+        <mxCell id="blob" value="Blob Storage&#10;[Receipts]&#10;SAS upload" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2D7D5A;strokeColor=#1E5F41;fontColor=#fff;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1080" y="390" width="240" height="80" as="geometry"/></mxCell>
+        <mxCell id="bus" value="Service Bus&#10;[Queue]&#10;claim.* events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1782C3;strokeColor=#0F5A8C;fontColor=#fff;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1080" y="530" width="240" height="80" as="geometry"/></mxCell>
+        <mxCell id="spc" value="SharePoint&#10;[M365]&#10;CSV drop folder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C8C8C;strokeColor=#6C6C6C;fontColor=#fff;" vertex="1" parent="1"><mxGeometry x="1080" y="660" width="240" height="80" as="geometry"/></mxCell>
+
+        <!-- Edges -->
+        <mxCell id="c1" value="REST w/ JWT [HTTPS]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="web" target="ctrl"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c2" value="Authenticates [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="ctrl" target="auth"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c3" value="Validates JWT (JWKS) [HTTPS]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="auth" target="entra"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c4" value="Submit/approve/reject [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="ctrl" target="claims"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c5" value="Attach receipts [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="claims" target="rec"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c6" value="Raise event [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="claims" target="notif"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c7" value="Record transition [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="claims" target="audit"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c8" value="Finance export [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="ctrl" target="export"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c9" value="Load/save [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="claims" target="repo"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c10" value="Append audit [in-proc]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="audit" target="repo"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c11" value="Reads/writes [TDS]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="repo" target="sql"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c12" value="Stores receipts via SAS [HTTPS]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="rec" target="blob"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c13" value="Writes CSV [Graph/HTTPS]" style="endArrow=block;html=1;fontSize=10;strokeColor=#464646;strokeWidth=2;" edge="1" parent="1" source="export" target="spc"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c14" value="Publishes events [AMQP]" style="endArrow=block;html=1;fontSize=10;dashed=1;strokeColor=#D06E14;fontColor=#D06E14;strokeWidth=2;" edge="1" parent="1" source="notif" target="bus"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="lg" value="Legend:  medium-blue = component (inside API)   dark-blue = container   green = data store   grey = external&#10;solid arrow = synchronous / in-process call      orange dashed = asynchronous message" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#FFFFFF;strokeColor=#999;dashed=1;fontSize=11;spacingLeft=8;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="80" y="430" width="250" height="160" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

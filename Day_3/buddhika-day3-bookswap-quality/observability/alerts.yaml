@@ -1,0 +1,136 @@
+# BookSwap — Alert definitions (machine-readable)
+# Each alert maps to an SLO in slo/slo-map.md and links to a runbook section.
+# Intended to be translated into Azure Monitor scheduled-query / metric alert rules.
+
+defaults:
+  workspace: bookswap-appinsights
+  action_groups:
+    pager: { type: pagerduty, target: bookswap-oncall }
+    teams: { type: teams, target: "#bookswap-incidents" }
+    security: { type: teams, target: "#bookswap-security" }
+
+alerts:
+  - name: listings-endpoint-down
+    slo: N7
+    description: Complete outage of the listings endpoint must page within 3 minutes.
+    type: availability
+    source: availabilityResults
+    condition: "failed for 2 consecutive 1-minute checks"
+    severity: Sev1
+    notify: [pager, teams]
+    runbook: reliability/runbook.md#failure-1-azure-sql-primary-unavailable-for-5-minutes
+
+  - name: search-slo-burn
+    slo: N1
+    type: scheduled_query
+    query: |
+      requests
+      | where timestamp > ago(10m) and name == "GET /books"
+      | summarize p95 = percentile(duration, 95)
+    condition: "p95 > 800 for 10m  OR  fast-burn 2% budget in 1h"
+    severity: Sev2
+    notify: [pager, teams]
+    runbook: reliability/runbook.md#failure-3-sunday-tabloid-spike
+
+  - name: listing-success-drop
+    slo: N3
+    type: scheduled_query
+    query: |
+      requests
+      | where timestamp > ago(30m) and name == "POST /books"
+      | summarize sr = 100.0 * countif(success == true) / count()
+    condition: "sr < 99.9 over 30m"
+    severity: Sev2
+    notify: [pager, teams]
+    runbook: reliability/runbook.md#failure-1-azure-sql-primary-unavailable-for-5-minutes
+
+  - name: duplicate-listing-detected
+    slo: N3b
+    type: scheduled_query
+    query: |
+      traces
+      | where timestamp > ago(5m) and customDimensions.event == "listing.duplicate"
+      | count
+    condition: "count > 0 in 5m"
+    severity: Sev3
+    notify: [teams]
+    runbook: reliability/runbook.md#failure-3-sunday-tabloid-spike
+
+  - name: sql-dependency-failing
+    slo: N3
+    type: scheduled_query
+    query: |
+      dependencies
+      | where timestamp > ago(2m) and type == "SQL"
+      | summarize failRate = 100.0 * countif(success == false) / count()
+    condition: "failRate > 25 over 2m"
+    severity: Sev1
+    notify: [pager]
+    runbook: reliability/runbook.md#failure-1-azure-sql-primary-unavailable-for-5-minutes
+
+  - name: redis-degraded
+    slo: N2
+    type: scheduled_query
+    query: |
+      dependencies
+      | where timestamp > ago(3m) and name has "redis"
+      | summarize failRate = 100.0 * countif(success == false) / count()
+    condition: "failRate > 50 over 3m"
+    severity: Sev2
+    notify: [pager]
+    runbook: reliability/runbook.md#failure-2-azure-cache-for-redis-is-down
+
+  - name: auth-failure-spike
+    slo: N5
+    type: scheduled_query
+    query: |
+      traces
+      | where timestamp > ago(5m) and customDimensions.event == "auth.failed"
+      | count
+    condition: "count > 5x 7-day baseline over 5m"
+    severity: Sev2
+    notify: [pager, security]
+    runbook: security-review.md
+
+  - name: audit-gap
+    slo: N8
+    type: scheduled_query
+    query: |
+      traces
+      | where timestamp > ago(1h)
+        and customDimensions.event in ("loan.created","loan.returned","auth.failed")
+      | summarize missing = countif(isempty(tostring(customDimensions.memberId))
+                                 or isempty(tostring(customDimensions.requestId)))
+    condition: "missing > 0 over 1h"
+    severity: Sev3
+    notify: [teams]
+    runbook: observability/plan.md
+
+  - name: notify-latency-breach
+    slo: N9
+    type: metric
+    metric: notify.latency_ms
+    condition: "< 95% under 2000ms over 15m"
+    severity: Sev3
+    notify: [teams]
+    runbook: reliability/runbook.md#failure-3-sunday-tabloid-spike
+
+  - name: queue-backlog
+    slo: N9
+    type: metric
+    source: ServiceBus
+    metric: ActiveMessageCount
+    condition: "> 10000 for 10m"
+    severity: Sev3
+    notify: [teams]
+    runbook: reliability/runbook.md#failure-3-sunday-tabloid-spike
+
+  - name: appservice-saturation
+    slo: N1
+    type: metric
+    source: AppService
+    metric: CpuPercentage
+    condition: "> 75 for 5m"
+    severity: Sev3
+    notify: [teams]
+    runbook: reliability/runbook.md#failure-3-sunday-tabloid-spike

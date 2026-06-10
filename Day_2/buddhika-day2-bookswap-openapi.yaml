@@ -1,0 +1,610 @@
+openapi: 3.1.0
+info:
+  title: BookSwap API
+  version: 0.1.0
+  description: |
+    BookSwap lets neighbours in a Colombo apartment block list, search, borrow
+    and lend books with each other. This API serves the member-facing mobile app:
+    members list books they own, search the building catalogue, request to borrow,
+    and the owner accepts or declines. Loans are tracked through their lifecycle
+    (out -> returned, or overdue after 30 days) with a borrower history per book.
+
+    Auth: every request must carry a valid JWT issued by Microsoft Entra External ID
+    in `Authorization: Bearer <token>`. Private contact details (address, phone) are
+    never returned in any response.
+  contact:
+    name: BookSwap Backend
+    email: backend@bookswap.local
+
+servers:
+  - url: https://api.bookswap.local
+    description: Local / design server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Books
+    description: Listing and searching the building catalogue
+  - name: Borrow Requests
+    description: Asking to borrow a book and the owner's decision
+  - name: Loans
+    description: Tracking books that are out, returned, or overdue
+
+paths:
+  /books:
+    get:
+      tags: [Books]
+      summary: List or search books in the building
+      description: |
+        Returns a page of books visible to the caller's building. Supports a free-text
+        `search` across title, author and ISBN, plus a `condition` filter. Offset
+        pagination via `page` / `pageSize`.
+      parameters:
+        - $ref: "#/components/parameters/SearchParam"
+        - $ref: "#/components/parameters/ConditionParam"
+        - $ref: "#/components/parameters/AvailableParam"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: A page of books
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Books]
+      summary: List a new book the caller owns
+      description: |
+        Creates a book listing owned by the authenticated member. Photo is uploaded
+        separately to keep this call fast and to keep binary data out of the database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookCreate" }
+      responses:
+        "201":
+          description: Book created
+          headers:
+            Location:
+              description: URL of the created book
+              schema: { type: string, format: uri }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Book" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /books/{bookId}:
+    parameters:
+      - $ref: "#/components/parameters/BookIdParam"
+    get:
+      tags: [Books]
+      summary: Get a single book
+      responses:
+        "200":
+          description: The book
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Book" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Books]
+      summary: Update a book you own (e.g. condition, availability)
+      description: Only the owner may update. Partial update — send only changed fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookUpdate" }
+      responses:
+        "200":
+          description: Updated book
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Book" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /books/{bookId}/photo:
+    parameters:
+      - $ref: "#/components/parameters/BookIdParam"
+    put:
+      tags: [Books]
+      summary: Upload or replace the book's photo
+      description: |
+        Accepts a single JPEG/PNG up to 5 MB. The image is stored in Azure Blob
+        Storage; only the resulting URL is persisted on the book record.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: Photo stored, returns the book with its photoUrl
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Book" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413":
+          description: Payload too large (over 5 MB)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "415":
+          description: Unsupported media type (not JPEG/PNG)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /books/{bookId}/borrow-requests:
+    parameters:
+      - $ref: "#/components/parameters/BookIdParam"
+    get:
+      tags: [Borrow Requests]
+      summary: List borrow requests for a book (owner only)
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: A page of borrow requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorrowRequestPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Borrow Requests]
+      summary: Request to borrow this book
+      description: |
+        Creates a pending borrow request. The owner is notified in-app within 2s.
+        Fails with 409 if the book is currently unavailable or the caller already
+        has an open request for it.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorrowRequestCreate" }
+      responses:
+        "201":
+          description: Borrow request created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorrowRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Book unavailable or duplicate open request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /borrow-requests/{requestId}:
+    parameters:
+      - $ref: "#/components/parameters/RequestIdParam"
+    patch:
+      tags: [Borrow Requests]
+      summary: Accept or decline a borrow request (owner only)
+      description: |
+        Owner sets `status` to `accepted` or `declined`. Accepting creates a Loan
+        and marks the book unavailable. The borrower is notified in-app.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorrowRequestDecision" }
+      responses:
+        "200":
+          description: Updated borrow request (includes loanId when accepted)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorrowRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Request already resolved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /loans:
+    get:
+      tags: [Loans]
+      summary: List loans for the caller (as borrower or owner)
+      parameters:
+        - name: role
+          in: query
+          description: Filter to loans where the caller is the borrower or the owner
+          schema: { type: string, enum: [borrower, owner], default: borrower }
+        - name: status
+          in: query
+          description: Filter by loan status
+          schema: { type: string, enum: [out, returned, overdue] }
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: A page of loans
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoanPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /loans/{loanId}:
+    parameters:
+      - $ref: "#/components/parameters/LoanIdParam"
+    get:
+      tags: [Loans]
+      summary: Get a single loan
+      responses:
+        "200":
+          description: The loan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Loan" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Loans]
+      summary: Mark a loan returned
+      description: |
+        Set `status` to `returned`. Records `returnedAt`, marks the book available
+        again, and appends to the book's borrower history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoanUpdate" }
+      responses:
+        "200":
+          description: Updated loan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Loan" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /books/{bookId}/loans:
+    parameters:
+      - $ref: "#/components/parameters/BookIdParam"
+    get:
+      tags: [Loans]
+      summary: Borrower history for a book
+      description: All past and current loans for this book, newest first.
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: A page of loans for the book
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoanPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT issued by Microsoft Entra External ID
+
+  parameters:
+    BookIdParam:
+      name: bookId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 7a1f6c2e-9b4d-4e1a-8c3f-2b6d9e0a1c45
+    RequestIdParam:
+      name: requestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 3c2b1a0f-8e7d-6c5b-4a39-281706f5e4d3
+    LoanIdParam:
+      name: loanId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 9f8e7d6c-5b4a-3928-1706-f5e4d3c2b1a0
+    SearchParam:
+      name: search
+      in: query
+      description: Free-text match across title, author, and ISBN
+      schema: { type: string, maxLength: 200 }
+      example: clean code
+    ConditionParam:
+      name: condition
+      in: query
+      description: Filter by physical condition
+      schema: { $ref: "#/components/schemas/Condition" }
+    AvailableParam:
+      name: available
+      in: query
+      description: Filter by availability
+      schema: { type: boolean }
+    PageParam:
+      name: page
+      in: query
+      description: 1-based page number
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSizeParam:
+      name: pageSize
+      in: query
+      description: Items per page
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    BadRequest:
+      description: Malformed request (bad query params or JSON)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: bad_request, message: "pageSize must be between 1 and 100" }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: unauthorized, message: "Missing or invalid bearer token" }
+    Forbidden:
+      description: Authenticated but not allowed (not the owner)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: forbidden, message: "Only the owner can perform this action" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: not_found, message: "Book not found" }
+    UnprocessableEntity:
+      description: Validation failed on an otherwise well-formed request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            code: validation_failed
+            message: "One or more fields are invalid"
+            details:
+              - field: title
+                issue: "must not be empty"
+
+  schemas:
+    Condition:
+      type: string
+      enum: [new, good, fair, worn]
+      description: Physical condition of the book
+
+    Book:
+      type: object
+      required: [id, title, author, condition, available, ownerId, createdAt]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        title: { type: string, maxLength: 300, example: "Clean Code" }
+        author: { type: string, maxLength: 200, example: "Robert C. Martin" }
+        isbn:
+          type: string
+          description: ISBN-10 or ISBN-13, digits only
+          pattern: '^(?:\d{10}|\d{13})$'
+          example: "9780132350884"
+        condition: { $ref: "#/components/schemas/Condition" }
+        available:
+          type: boolean
+          description: Whether the book can currently be borrowed
+          example: true
+        photoUrl:
+          type: string
+          format: uri
+          description: Blob Storage URL of the photo (null until uploaded)
+          example: "https://bookswapphotos.blob.core.windows.net/books/7a1f.jpg"
+        ownerId: { type: string, format: uuid, readOnly: true }
+        createdAt: { type: string, format: date-time, readOnly: true }
+      example:
+        id: 7a1f6c2e-9b4d-4e1a-8c3f-2b6d9e0a1c45
+        title: "Clean Code"
+        author: "Robert C. Martin"
+        isbn: "9780132350884"
+        condition: good
+        available: true
+        photoUrl: "https://bookswapphotos.blob.core.windows.net/books/7a1f.jpg"
+        ownerId: 11111111-1111-1111-1111-111111111111
+        createdAt: "2026-06-01T09:30:00Z"
+
+    BookCreate:
+      type: object
+      required: [title, author, condition]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        author: { type: string, minLength: 1, maxLength: 200 }
+        isbn: { type: string, pattern: '^(?:\d{10}|\d{13})$' }
+        condition: { $ref: "#/components/schemas/Condition" }
+        available: { type: boolean, default: true }
+      example:
+        title: "The Pragmatic Programmer"
+        author: "Andrew Hunt, David Thomas"
+        isbn: "9780201616224"
+        condition: good
+        available: true
+
+    BookUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        author: { type: string, minLength: 1, maxLength: 200 }
+        condition: { $ref: "#/components/schemas/Condition" }
+        available: { type: boolean }
+      example:
+        condition: fair
+        available: false
+
+    BorrowRequest:
+      type: object
+      required: [id, bookId, borrowerId, status, createdAt]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        bookId: { type: string, format: uuid, readOnly: true }
+        borrowerId: { type: string, format: uuid, readOnly: true }
+        message: { type: string, maxLength: 500 }
+        status:
+          type: string
+          enum: [pending, accepted, declined, cancelled]
+          readOnly: true
+        loanId:
+          type: string
+          format: uuid
+          description: Set once the request is accepted
+          readOnly: true
+        createdAt: { type: string, format: date-time, readOnly: true }
+      example:
+        id: 3c2b1a0f-8e7d-6c5b-4a39-281706f5e4d3
+        bookId: 7a1f6c2e-9b4d-4e1a-8c3f-2b6d9e0a1c45
+        borrowerId: 22222222-2222-2222-2222-222222222222
+        message: "Could I borrow this for two weeks?"
+        status: pending
+        loanId: null
+        createdAt: "2026-06-02T14:05:00Z"
+
+    BorrowRequestCreate:
+      type: object
+      properties:
+        message: { type: string, maxLength: 500 }
+      example:
+        message: "Could I borrow this for two weeks?"
+
+    BorrowRequestDecision:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, declined]
+      example:
+        status: accepted
+
+    Loan:
+      type: object
+      required: [id, bookId, borrowerId, ownerId, status, borrowedAt, dueAt]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        bookId: { type: string, format: uuid, readOnly: true }
+        borrowerId: { type: string, format: uuid, readOnly: true }
+        ownerId: { type: string, format: uuid, readOnly: true }
+        status:
+          type: string
+          enum: [out, returned, overdue]
+          readOnly: true
+        borrowedAt: { type: string, format: date-time, readOnly: true }
+        dueAt:
+          type: string
+          format: date-time
+          description: 30 days after borrowedAt
+          readOnly: true
+        returnedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      example:
+        id: 9f8e7d6c-5b4a-3928-1706-f5e4d3c2b1a0
+        bookId: 7a1f6c2e-9b4d-4e1a-8c3f-2b6d9e0a1c45
+        borrowerId: 22222222-2222-2222-2222-222222222222
+        ownerId: 11111111-1111-1111-1111-111111111111
+        status: out
+        borrowedAt: "2026-06-02T15:00:00Z"
+        dueAt: "2026-07-02T15:00:00Z"
+        returnedAt: null
+
+    LoanUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [returned]
+      example:
+        status: returned
+
+    PageMeta:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page: { type: integer, example: 1 }
+        pageSize: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
+
+    BookPage:
+      type: object
+      required: [items, page, pageSize, total]
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Book" }
+
+    BorrowRequestPage:
+      type: object
+      required: [items, page, pageSize, total]
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/BorrowRequest" }
+
+    LoanPage:
+      type: object
+      required: [items, page, pageSize, total]
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Loan" }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code
+          example: not_found
+        message:
+          type: string
+          description: Human-readable explanation
+          example: "Book not found"
+        details:
+          type: array
+          description: Optional per-field validation problems
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              issue: { type: string }

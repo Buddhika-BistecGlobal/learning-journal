@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes @apidevtools/swagger-cli validate buddhika-day2-bookswap-openapi.yaml)",
+      "Bash(python render_container_diagram.py)",
+      "Bash(where docker *)",
+      "Bash(docker --version)",
+      "Bash(where java *)",
+      "Bash(java -version)",
+      "Bash(docker info *)",
+      "Bash(cd \"c:\\\\Users\\\\BuddhikaAmarasingheB\\\\source\\\\repos\\\\Role Base Training TL\\\\Intern Onboarding\\\\Day_3\")",
+      "Bash(seq 1 30)",
+      "Bash(grep -q \"Prism is listening\" prism.log)",
+      "Bash(echo \"PRISM_READY\")",
+      "Bash(break)",
+      "Bash(curl -s -o /dev/null -w \"books status=%{http_code}\\\\n\" -H \"Authorization: Bearer x\" \"http://127.0.0.1:4010/books?page=1&pageSize=5\")",
+      "Bash(docker run *)",
+      "Bash(echo \"ZAP_EXIT=$?\")",
+      "Bash(curl -s -o /dev/null -w \"prism status=%{http_code}\\\\n\" -H \"Authorization: Bearer x\" \"http://127.0.0.1:4010/books?page=1&pageSize=5\")",
+      "Bash(python render_day4_diagrams.py)",
+      "Bash(npx -y @mermaid-js/mermaid-cli@10.9.1 -i sequence.mmd -o sequence-submit-approve.png -t neutral -b white -s 2)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npx -y @mermaid-js/mermaid-cli@10.9.1 -i errorpath.mmd -o errorpath.png -t neutral -b white -s 2)",
+      "Bash(node -e \"require\\('node:test'\\); console.log\\('node:test OK'\\)\")",
+      "Bash(node --test)",
+      "Bash(cp \"../buddhika-day5-receipt-categoriser-spec.md\" spec/spec.md)",
+      "Bash(cp \"../buddhika-day5-receipt-categoriser-acceptance.md\" spec/acceptance.md)"
+    ]
+  }
+}
