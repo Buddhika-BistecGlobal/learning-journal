@@ -24,7 +24,10 @@
       "Bash(node -e \"require\\('node:test'\\); console.log\\('node:test OK'\\)\")",
       "Bash(node --test)",
       "Bash(cp \"../buddhika-day5-receipt-categoriser-spec.md\" spec/spec.md)",
-      "Bash(cp \"../buddhika-day5-receipt-categoriser-acceptance.md\" spec/acceptance.md)"
+      "Bash(cp \"../buddhika-day5-receipt-categoriser-acceptance.md\" spec/acceptance.md)",
+      "PowerShell(git ls-remote *)",
+      "PowerShell(git pull *)",
+      "PowerShell(git push *)"
     ]
   }
 }
